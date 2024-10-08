@@ -148,7 +148,11 @@ class GameState():
             vulnerabilities = np.random.choice(network_config.num_cols, size=num_vulnerabilities_per_layer,
                                                replace=False)
             vulnerabilities_per_layer[row][vulnerabilities] = 1
-
+        vulnerabilities_per_layer[2][0] = 1
+        print("Vulnerabilities per layer:")
+        print(vulnerabilities_per_layer)
+        print("num_vulnerable nodes_per_layer:", num_vulnerabilities_per_layer)
+        print("num_vulnerabilities_per_node:", num_vulnerabilities_per_node)
         for node_id in range(num_nodes):
             row, col = network_config.get_node_pos(node_id)
             num_vuln = min(num_vulnerabilities_per_node, num_attack_types)

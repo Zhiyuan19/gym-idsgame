@@ -48,7 +48,7 @@ class GameConfig():
         self.min_random_d_val = min_random_d_val
         self.min_random_det_val = min_random_det_val
         self.num_rows = self.num_layers + 2
-        self.num_nodes = self.num_layers * self.num_servers_per_layer + 2  # +2 for Start and Data Nodes
+        self.num_nodes = self.num_layers * self.num_servers_per_layer + 3  # +2 for Start and Data Nodes
         self.num_cols = self.num_servers_per_layer
         self.set_attack_actions()
         self.num_defense_actions = (self.num_attack_types+1) * self.num_nodes
@@ -65,7 +65,7 @@ class GameConfig():
         self.max_random_v_val = max_random_v_val
         self.num_vulnerabilities_per_layer = None
         if network_config is None:
-            self.network_config = NetworkConfig(self.num_rows, self.num_cols, connected_layers=False)
+            self.network_config = NetworkConfig(self.num_rows, self.num_cols, connected_layers=True)
         self.initial_state = initial_state
         if self.initial_state is None and self.initial_state_path is not None:
             self.initial_state = GameState.load(self.initial_state)
