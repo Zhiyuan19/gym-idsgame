@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(name='gym_idsgame',
       version='1.0.12',
-      install_requires=['gym', 'pyglet==1.5.15', 'numpy', 'torch', 'matplotlib', 'seaborn', 'tqdm', 'opencv-python',
+      install_requires=['gymnasium', 'pyglet==1.5.15', 'numpy', 'torch', 'matplotlib', 'seaborn', 'tqdm', 'opencv-python',
                         'imageio', 'jsonpickle', 'tensorboard', 'scikit-learn', 'stable_baselines3', 'torchvision',
                         'cv', 'PyOpenGL'],
       author='Kim Hammar',

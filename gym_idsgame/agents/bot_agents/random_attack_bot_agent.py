@@ -5,6 +5,8 @@ import numpy as np
 from gym_idsgame.agents.bot_agents.bot_agent import BotAgent
 from gym_idsgame.envs.dao.game_state import GameState
 from gym_idsgame.envs.dao.game_config import GameConfig
+from gym_idsgame.envs.util import idsgame_util
+
 
 class RandomAttackBotAgent(BotAgent):
     """

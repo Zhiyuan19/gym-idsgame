@@ -36,7 +36,7 @@ class Network:
 
         # Create Root Link
         root_row, root_col = self.idsgame_config.game_config.network_config.start_pos
-        root_edge = self.__root_edge(self.grid[root_row][root_col])
+        #root_edge = self.__root_edge(self.grid[root_row][root_col])
 
         # Create Leaf Link
         leaf_edge = self.__leaf_edge(self.grid[0][root_col])
@@ -96,8 +96,8 @@ class Network:
         for j in range(self.idsgame_config.game_config.num_servers_per_layer):
             row = self.idsgame_config.game_config.num_rows-2
             col = j
-            self.grid[row][col].add_in_edge(root_edge)
-        self.grid[root_row][root_col].add_out_edge(root_edge)
+            #self.grid[row][col].add_in_edge(root_edge)
+        #self.grid[root_row][root_col].add_out_edge(root_edge)
 
 
     def __create_horizontal_links(self, y_coord: float, row: int) -> list:
