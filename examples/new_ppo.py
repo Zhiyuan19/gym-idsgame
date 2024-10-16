@@ -65,16 +65,16 @@ if __name__ == '__main__':
     print(idsgame_env.idsgame_config.game_config.initial_state.reconnaissance_state)
     variable_config = variable.VariableConfig()
     print("Priority after change:", variable_config.priority)
-    #obs, _ = env.reset()
+    obs, _ = env.reset()
     #obs, rewards, dones, _, info = env.step(4)
     #while True:
         #env.render("human")
 
-    #model = PPO("MlpPolicy", env, verbose=1)
-    #model.learn(total_timesteps=1000)
-    #obs, _ = env.reset()
+    model = PPO("MlpPolicy", env, verbose=1)
+    model.learn(total_timesteps=1000)
+    obs, _ = env.reset()
     #print("obs is", obs)
-    #while True:
-        #action, _states = model.predict(obs)
-        #obs, rewards, dones, _, info = env.step(action)
-        #env.render("human")
+    while True:
+        action, _states = model.predict(obs)
+        obs, rewards, dones, _, info = env.step(action)
+        env.render("human")
