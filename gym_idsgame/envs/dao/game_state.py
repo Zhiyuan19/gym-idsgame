@@ -77,6 +77,7 @@ class GameState():
                                    "Exposure", "Access", "Forgery", "Vulnerabilities", "Redirects"]
         self.reconnaissance_actions = []
         self.max_random_v_val = max_random_v_val
+        self.apt_stage = []  # List representing the APT stage for each node, initially set to empty
 
     def default_state(self, node_list: List[int], attacker_pos: Union[int, int], num_attack_types: int,
                       network_config: NetworkConfig, randomize_state : bool = False,
@@ -133,6 +134,7 @@ class GameState():
         :return: None
         """
         num_nodes = len(node_list)
+        self.apt_stage = ["reconnaissance"] * (num_nodes-1) #set all the nodes in reconnaissance phase at first.
         attack_values = np.zeros((num_nodes, num_attack_types))
         defense_values = np.zeros((num_nodes, num_attack_types))
         det_values = np.zeros(num_nodes)
@@ -272,6 +274,7 @@ class GameState():
         new_state.num_hacks = self.num_hacks
         new_state.hacked = self.hacked
         new_state.reconnaissance_actions = self.reconnaissance_actions
+        new_state.apt_stage = self.apt_stage
         return new_state
 
     def attack(self, node_id: int, attack_type: int, max_value: int, network_config: NetworkConfig,

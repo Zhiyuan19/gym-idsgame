@@ -17,6 +17,16 @@ from gym_idsgame.envs.dao.game_state import GameState
 from gym_idsgame.envs.dao.idsgame_config import IdsGameConfig
 from gym_idsgame.envs.dao.network_config import NetworkConfig
 from gym_idsgame.envs.constants import constants
+import sys
+import signal
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
+from topology.topology import Mytopo
+from containernet.net import Containernet
+from mininet.node import Controller, OVSKernelSwitch, RemoteController
+from containernet.cli import CLI
+from containernet.link import TCLink
+from mininet.log import info, setLogLevel
+import subprocess
 #import gym_idsgame.envs.util.idsgame_util as util
 
 class IdsGameEnv(gym.Env, ABC):
@@ -92,6 +102,7 @@ class IdsGameEnv(gym.Env, ABC):
         self.hacked_nodes = []
         self.num_failed_attacks = 0
         self.failed_attacks = {}
+        #self.topo = Mytopo()
 
     # -------- API ------------
     def step(self, action: Tuple[int, int]) -> Union[np.ndarray, int, bool, dict]:
@@ -149,6 +160,7 @@ class IdsGameEnv(gym.Env, ABC):
             self.past_moves.append(target_node_id)
             if not reconnaissance:
                 # 4. Attack
+                #self.topo.attackactionsmapping(target_node_id, attack_type)
                 self.state.attack(target_node_id, attack_type, self.idsgame_config.game_config.max_value,
                                   self.idsgame_config.game_config.network_config,
                                   reconnaissance_enabled=self.idsgame_config.reconnaissance_actions)
