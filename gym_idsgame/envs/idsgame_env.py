@@ -64,7 +64,7 @@ class IdsGameEnv(gym.Env, ABC):
         self.validate_config(idsgame_config)
         self.idsgame_config: IdsGameConfig = idsgame_config
         self.state: GameState = self.idsgame_config.game_config.initial_state.copy()
-        self.observation_space = self.idsgame_config.game_config.get_attacker_observation_space()
+        self.observation_space = self.idsgame_config.game_config.get_defender_observation_space()
         self.action_space = self.idsgame_config.game_config.get_action_space(defender=False)
         self.attacker_action_space = self.idsgame_config.game_config.get_action_space(defender=False)
         self.defender_action_space = self.idsgame_config.game_config.get_action_space(defender=True)
@@ -102,7 +102,17 @@ class IdsGameEnv(gym.Env, ABC):
         self.hacked_nodes = []
         self.num_failed_attacks = 0
         self.failed_attacks = {}
-        #self.topo = Mytopo()
+        #print("attacker position is", self.state.attacker_pos)
+        ## add Containernet configuration
+        setLogLevel('info')
+        os.system('sudo sysctl -w net.ipv4.ip_forward=1')
+        os.system('sudo iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE')
+        os.system('ip route')
+        os.system('sudo iptables -A FORWARD -i s1 -j ACCEPT')
+        os.system('sudo iptables -A FORWARD -o s1 -j ACCEPT')
+        os.system('sudo iptables -A FORWARD -i s3 -j ACCEPT')
+        os.system('sudo iptables -A FORWARD -o s3 -j ACCEPT')
+        self.topo = None
 
     # -------- API ------------
     def step(self, action: Tuple[int, int]) -> Union[np.ndarray, int, bool, dict]:
@@ -115,7 +125,7 @@ class IdsGameEnv(gym.Env, ABC):
         :param action: the action to take in the environment
         :return:
             observation (object): agent's observation of the current environment
-            reward (float) : amount of reward returned after previous action
+            reward (float) : amount Fof reward returned after previous action
             done (bool): whether the episode has ended, in which case further step() calls will return undefined results
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
@@ -128,7 +138,8 @@ class IdsGameEnv(gym.Env, ABC):
         info["moved"] = False
         self.state.attack_events = []
         self.state.defense_events = []
-
+        print("###############")
+        print("GAME STEP", self.state.game_step, ":started")
         if self.state.game_step > constants.GAME_CONFIG.MAX_GAME_STEPS:
             return self.get_observation(), (100*constants.GAME_CONFIG.NEGATIVE_REWARD,
                                             100*constants.GAME_CONFIG.NEGATIVE_REWARD), True, True, info
@@ -138,7 +149,7 @@ class IdsGameEnv(gym.Env, ABC):
         # 1. Interpret attacker action
         attacker_pos = self.state.attacker_pos
         if attack_action != -1:
-            target_node_id, target_pos, attack_type, reconnaissance = self.get_attacker_action(action)
+            target_node_id, target_pos, attack_type, reconnaissance = self.get_attacker_action(action, self.state.game_step)
             trajectory.append([target_node_id, target_pos, attack_type, reconnaissance])
 
         # 2. Interpret defense action
@@ -147,42 +158,41 @@ class IdsGameEnv(gym.Env, ABC):
 
         # 3. Defend
         detect = defense_type == self.idsgame_config.game_config.num_attack_types
-        print("detect is", detect)
-        defense_successful = self.state.defend(defense_node_id, defense_type, self.idsgame_config.game_config.max_value,
-                          self.idsgame_config.game_config.network_config, detect=detect)
-        print("defense_successful is ", defense_successful)
+        #print("detect boolean flag is", detect)
+        defense_successful = self.state.defend(defense_node_id, defense_type, self.idsgame_config.game_config.max_value, self.topo, self.idsgame_config.game_config.network_config, detect=detect)
+        #print("defense_successful is ", defense_successful)
         if defense_successful:
             self.defenses.append((defense_node_id, defense_type, detect, self.state.game_step))
         self.state.add_defense_event(defense_pos, defense_type)
 
-        if attack_action != -1 and util.is_attack_legal(target_pos, attacker_pos, self.idsgame_config.game_config.network_config,
-                                past_positions=self.past_positions):
+        if attack_action != -1:
             self.past_moves.append(target_node_id)
+            #print("while execution, reconnaissance boolen flag is", reconnaissance)
+            attack_successful = False
             if not reconnaissance:
                 # 4. Attack
-                #self.topo.attackactionsmapping(target_node_id, attack_type)
-                self.state.attack(target_node_id, attack_type, self.idsgame_config.game_config.max_value,
-                                  self.idsgame_config.game_config.network_config,
-                                  reconnaissance_enabled=self.idsgame_config.reconnaissance_actions)
+                attack_successful = self.state.attack(target_node_id, attack_type, self.idsgame_config.game_config.max_value, self.topo, self.idsgame_config.game_config.network_config, reconnaissance_enabled=self.idsgame_config.reconnaissance_actions)
+                print("attack result is", attack_successful)
             else:
-                rec_reward = self.state.reconnaissance(target_node_id, attack_type, reconnaissance_reward=self.idsgame_config.reconnaissance_reward)
+                rec_reward, attack_successful = self.state.reconnaissance(target_node_id, attack_type, self.topo, reconnaissance_reward=self.idsgame_config.reconnaissance_reward)
+                print("attack result is", attack_successful)
                 self.past_reconnaissance_activities.append((target_node_id, attack_type))
                 reward = (rec_reward, 0)
 
             self.state.add_attack_event(target_pos, attack_type, self.state.attacker_pos, reconnaissance)
             self.attacks.append((target_node_id, attack_type, self.state.game_step, reconnaissance))
 
-            attack_successful = False
-            if not reconnaissance:
+            #attack_successful = False
+            #if not reconnaissance:
                 # 5. Simulate attack outcome
-                attack_successful = self.state.simulate_attack(target_node_id, attack_type,
-                                                               self.idsgame_config.game_config.network_config)
+                #attack_successful = self.state.simulate_attack(target_node_id, attack_type,
+                                                               #self.idsgame_config.game_config.network_config)
             if self.idsgame_config.save_attack_stats:
                 self.total_attacks.append([target_node_id, attack_successful, reconnaissance])
 
             # 6. Update state based on attack outcome
             if attack_successful:
-                if not reconnaissance:
+                if not reconnaissance: #doing attacks
                     info["moved"] = True
                     self.past_positions.append(target_pos)
                     self.state.attacker_pos = target_pos
@@ -193,8 +203,24 @@ class IdsGameEnv(gym.Env, ABC):
                         reward = self.get_hack_reward(attack_type, target_node_id)
                     else:
                         reward = self.get_successful_attack_reward(attack_type, target_node_id)
+                    ##new part
+                    if attack_type == 0: #bruteforce attack succeed
+                        self.state.apt_stage[target_node_id] = 2 #move to compromied state
+                    elif attack_type == 1: #root attack succeed
+                        self.state.apt_stage[target_node_id] = 3  # move to root state     
+                    elif attack_type == 2:  #persistence attack succeed 
+                        self.state.apt_stage[target_node_id] = 3 # stay in root state
+                    else:#ddos attack succeed
+                        self.state.apt_stage[target_node_id] = 4 # move to impact state
+                else: # reconnaissance action
+                    ## new part for reconnaissance succeed
+                    if self.state.apt_stage[target_node_id] == 0:
+                        self.state.apt_stage[target_node_id] = 1 #unknown state to scanned state
+                    else:
+                        self.state.apt_stage[target_node_id] = self.state.apt_stage[target_node_id] #keep the current state
                 self.num_failed_attacks = 0
-            else:
+            else: ##attack failed
+                self.state.apt_stage[target_node_id] = 0
                 self.num_failed_attacks += 1
                 if (target_node_id, attack_type) in self.failed_attacks:
                     self.failed_attacks[(target_node_id, attack_type)] = self.failed_attacks[(target_node_id, attack_type)] + 1
@@ -222,11 +248,12 @@ class IdsGameEnv(gym.Env, ABC):
             if self.steps_beyond_done is None:
                 self.steps_beyond_done = 0
             else:
-                gym.logger.warn(
-                    "You are calling 'step()' even though this environment has already returned done = True. "
-                    "You should always call 'reset()' once you receive 'done = True' -- "
-                    "any further steps are undefined behavior.")
+                #gym.logger.warn(
+                    #"You are calling 'step()' even though this environment has already returned done = True. "
+                    #"You should always call 'reset()' once you receive 'done = True' -- "
+                    #"any further steps are undefined behavior.")
                 self.steps_beyond_done += 1
+        print("GAME STEP", self.state.game_step, ":ended")
         self.state.game_step += 1
         observation = self.get_observation()
         if self.viewer is not None:
@@ -238,7 +265,13 @@ class IdsGameEnv(gym.Env, ABC):
         trajectory.append(self.state)
         if self.idsgame_config.save_trajectories:
             self.game_trajectories.append(trajectory)
-        return observation, reward, self.state.done, self.state.done, info
+        #obs = obs.astype(np.int32)
+        #print("obs is:", observation[1][0].astype(np.int32))
+        #print("observation space is:", self.observation_space)
+        obs1 = observation[1][0].astype(np.int32)
+        obs = np.array([obs1])
+        print("attack state for target node",target_node_id ,"is",self.state.apt_stage[target_node_id])
+        return obs, reward[1], self.state.done, self.state.done, info
 
     def reset(self, seed: int = 0, update_stats = False) -> np.ndarray:
         """
@@ -273,15 +306,28 @@ class IdsGameEnv(gym.Env, ABC):
         if self.viewer is not None:
             self.viewer.gameframe.reset()
         observation = self.get_observation()
-        print("attack obs:", observation[0])
-        print("defend obs:", observation[1])
+        #print("attack obs:", observation[0])
+        #print("defend obs:", observation[1])
         self.past_positions.append(self.state.attacker_pos)
         self.defenses = []
         self.attacks = []
         self.hacked_nodes = []
         self.num_failed_attacks = 0
-        return observation, {}
+        ### add containernet configuration
+        if self.topo is not None:
+            self.topo.net.stop()
+        os.system('sudo echo "nameserver 8.8.8.8" > /etc/resolv.conf')
+        self.topo = Mytopo()
+        self.topo.start_webcamservice()
+        time.sleep(3)
+        self.topo.default_firewall_and_IDS()
+        print("attacker position after reset is", self.state.attacker_pos)
+        return observation[1], {}
 
+
+    def is_end(self):
+        return self.topo.net.stop()
+        
     def restart(self) -> np.ndarray:
         """
         Restarts the game, and all the history
@@ -776,12 +822,16 @@ class DefenderEnv(IdsGameEnv, ABC):
     def get_defender_action(self, action) -> Union[int, Union[int, int], int]:
         import gym_idsgame.envs.util.idsgame_util as util
         _, defender_action = action
-        print("actual defend action id:", defender_action)
+        #print("actual defend action id:", defender_action)
         return util.interpret_defense_action(defender_action, self.idsgame_config.game_config)
 
-    def get_attacker_action(self, action) -> Union[Union[int, int], int, int, bool]:
+    def get_attacker_action(self, action, gamestep:int) -> Union[Union[int, int], int, int, bool]:
         import gym_idsgame.envs.util.idsgame_util as util
-        attack_id = self.idsgame_config.attacker_agent.action(self.state)
+        import random
+        #attack_id = self.idsgame_config.attacker_agent.action(self.state)
+        #attack_id = random.randint(0, 19)
+        array = [14, 10, 11, 12, 13]
+        attack_id = array[gamestep]
         print("actual attack action id:", attack_id)
         attack_node_id, attack_node_pos, attack_type, reconnaissance = util.interpret_attack_action(attack_id, self.idsgame_config.game_config)
         return attack_node_id, attack_node_pos, attack_type, reconnaissance
@@ -5114,6 +5164,8 @@ class IdsGameRandomAttackV22Env(DefenderEnv):
             game_config.set_initial_state(defense_val=6, attack_val=0, num_vulnerabilities_per_node=2, det_val=1,
                                           vulnerability_val=4, num_vulnerabilities_per_layer=2,
                                           randomize_visibility=False, visibility_p=0.0)
+                                          
+            #print("attacker pos is :", game_config.initial_state.attacker_pos)
             game_config.dense_rewards_v3 = True
             game_config.network_config.fully_observed = False
             game_config.reconnaissance_actions = True
@@ -5125,7 +5177,7 @@ class IdsGameRandomAttackV22Env(DefenderEnv):
             idsgame_config = IdsGameConfig(game_config=game_config, attacker_agent=attacker_agent)
             idsgame_config.render_config.caption = "idsgame-random_attack-v22"
             idsgame_config.randomize_env = False
-            idsgame_config.randomize_starting_position = True
+            idsgame_config.randomize_starting_position = False
             idsgame_config.reconnaissance_bool_features = True
             idsgame_config.local_view_observations = False
             idsgame_config.reconnaissance_actions = True
