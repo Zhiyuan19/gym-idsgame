@@ -1,6 +1,19 @@
 """
 Stateful data of the gym-idsgame environment
 """
+import os
+import sys
+import signal
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../')))
+
+from topology.topology import Mytopo
+from containernet.net import Containernet
+from mininet.node import Controller, OVSKernelSwitch, RemoteController
+from containernet.cli import CLI
+from containernet.link import TCLink
+from mininet.log import info, setLogLevel
+import subprocess
+
 from typing import Union, List
 import numpy as np
 import pickle
@@ -8,6 +21,8 @@ from gym_idsgame.envs.dao.node_type import NodeType
 from gym_idsgame.envs.constants import constants
 from gym_idsgame.envs.dao.attack_defense_event import AttackDefenseEvent
 from gym_idsgame.envs.dao.network_config import NetworkConfig
+
+
 
 class GameState():
     """
@@ -77,7 +92,7 @@ class GameState():
                                    "Exposure", "Access", "Forgery", "Vulnerabilities", "Redirects"]
         self.reconnaissance_actions = []
         self.max_random_v_val = max_random_v_val
-        self.apt_stage = []  # List representing the APT stage for each node, initially set to empty
+        self.apt_stage = None  # List representing the APT stage for each node, initially set to empty
 
     def default_state(self, node_list: List[int], attacker_pos: Union[int, int], num_attack_types: int,
                       network_config: NetworkConfig, randomize_state : bool = False,
@@ -134,7 +149,7 @@ class GameState():
         :return: None
         """
         num_nodes = len(node_list)
-        self.apt_stage = ["reconnaissance"] * (num_nodes-1) #set all the nodes in reconnaissance phase at first.
+        self.apt_stage = [0] * (num_nodes-1)
         attack_values = np.zeros((num_nodes, num_attack_types))
         defense_values = np.zeros((num_nodes, num_attack_types))
         det_values = np.zeros(num_nodes)
@@ -277,8 +292,8 @@ class GameState():
         new_state.apt_stage = self.apt_stage
         return new_state
 
-    def attack(self, node_id: int, attack_type: int, max_value: int, network_config: NetworkConfig,
-               reconnaissance_enabled : bool = False) -> None:
+    def attack(self, node_id: int, attack_type: int, max_value: int, topo: Mytopo, network_config: NetworkConfig,
+               reconnaissance_enabled : bool = False) -> bool:
         """
         Increments the attack value of the specified node and attack type
 
@@ -295,6 +310,30 @@ class GameState():
             if network_config.node_list[node_id] != NodeType.START and \
                     self.attack_values[node_id][attack_type] > self.reconnaissance_state[node_id][attack_type]:
                 self.reconnaissance_state[node_id][attack_type] = self.attack_values[node_id][attack_type]
+        #attack mapping to containernet
+        if attack_type == 0:
+            output1 = topo.sshbruteforce(node_id)
+            #print("Testing:ssh bruteforce result boolean flag is", output1)
+        if attack_type == 1:
+            output1 = topo.root(node_id)
+            #print("Testing:ssh root result boolean flag is", output1)
+        if attack_type == 2:
+            output1 = topo.persistence(node_id)
+            #print("Testing:persistence result boolean flag is", output1)
+        if attack_type == 3:
+            if node_id == 2:
+                output1 = topo.attack_modidyfirewall()
+                #print("Testing:Modifying firewall rules boolen flag is", output1)
+            else:
+                output1 = topo.DDoS(node_id)
+                #print("Testing:DDoS result boolean flag is", output1)
+        
+        return output1
+        
+            
+            
+                
+                
 
     def min_attack_type(self, node, row_ids):
         min_val = float('inf')
@@ -311,7 +350,7 @@ class GameState():
         return min_ats
 
 
-    def reconnaissance(self, node_id: int, attack_type: int, reconnaissance_reward : bool = False) -> int:
+    def reconnaissance(self, node_id: int, attack_type: int, topo: Mytopo, reconnaissance_reward : bool = False) -> Union[int, bool]:
         """
         Performs a reconnaissance activity for the attacker
 
@@ -329,9 +368,11 @@ class GameState():
             reward = 0
         self.reconnaissance_state[node_id] = self.defense_values[node_id]
         self.reconnaissance_actions.append(node_id)
-        return reward
+        output = topo.reconnaissance(node_id)
+        #print("reconnaisance boolen flag is :", output)
+        return reward, output
 
-    def defend(self, node_id: int, defense_type: int, max_value: int, network_config: NetworkConfig,
+    def defend(self, node_id: int, defense_type: int, max_value: int, topo: Mytopo, network_config: NetworkConfig,
                detect : bool = False) -> bool:
         """
         Increments the defense value of the specified node and defense type
@@ -344,10 +385,24 @@ class GameState():
         :return: True if update had effect, otherwise False
         """
         if detect or defense_type >= self.defense_values.shape[1]:
+            # recall containernet functions
+            #topo.default_firewall_and_IDS()
+            print("Info: Defender stays idle and does nothing")
             if network_config.node_list[node_id] != NodeType.START and self.defense_det[node_id] < max_value:
                 self.defense_det[node_id] += 1
                 return True
         else:
+            # recall containernet functions
+            if defense_type == 0:
+                topo.pause_services(node_id)
+            if defense_type == 1:
+                topo.block_traffic(node_id)
+            if defense_type == 2:
+                #topo.isolate_node(node_id)
+                topo.addsnortrules()
+            if defense_type == 3:
+                topo.reset_services(node_id)
+                
             if network_config.node_list[node_id] != NodeType.START and \
                     self.defense_values[node_id][defense_type] < max_value:
                 self.defense_values[node_id][defense_type] += 1
@@ -589,3 +644,32 @@ class GameState():
     def save(path, state):
         filehandler = open(path + "/initial_state.pkl", 'wb')
         pickle.dump(state, filehandler)
+        
+        
+def stop_network(net):
+    def handler(signal, frame):
+        print("Stopping the network...")
+        net.stop()
+        exit(0)
+    return handler
+    
+
+if __name__ == '__main__':
+    setLogLevel('info')
+    os.system('sudo sysctl -w net.ipv4.ip_forward=1')
+    os.system('sudo iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE')
+    os.system('ip route')
+    os.system('sudo iptables -A FORWARD -i s1 -j ACCEPT')
+    os.system('sudo iptables -A FORWARD -o s1 -j ACCEPT')
+    os.system('sudo iptables -A FORWARD -i s3 -j ACCEPT')
+    os.system('sudo iptables -A FORWARD -o s3 -j ACCEPT')
+    
+    topo = Mytopo()
+    #print("Testing connectivity in my network")
+    topo.net.pingAll()
+    #CLI(topo.net)
+    #topo.net.stop()
+    signal.signal(signal.SIGINT, stop_network(topo.net))
+    while True:
+        pass
+    os.system('sudo echo "nameserver 8.8.8.8" > /etc/resolv.conf')
