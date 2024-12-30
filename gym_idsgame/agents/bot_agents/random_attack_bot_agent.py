@@ -6,6 +6,7 @@ from gym_idsgame.agents.bot_agents.bot_agent import BotAgent
 from gym_idsgame.envs.dao.game_state import GameState
 from gym_idsgame.envs.dao.game_config import GameConfig
 from gym_idsgame.envs.util import idsgame_util
+import random
 
 
 class RandomAttackBotAgent(BotAgent):
@@ -22,7 +23,56 @@ class RandomAttackBotAgent(BotAgent):
         """
         super(RandomAttackBotAgent, self).__init__(game_config)
         self.idsgame_env = env
-
+        self.startattack = False
+        
+        
+    def select(self, game_state: GameState):
+        if self.startattack == False:
+            flag = random.choices([0, 1], weights=[2, 3], k=1)[0]
+            print(" start flag is", flag)
+            if flag == 0: ## keep idle
+                return [0, 5]
+            else: #start attacks
+                self.startattack = True
+                nodes = [0, 1, 2, 3]
+                weights = [0.05, 0.05, 0.4, 0.5]
+                attacknode = random.choices(nodes, weights=weights, k=1)[0]
+                return [attacknode, 4] #start reconnaissance first  
+        else:
+            if game_state.attackresult == True:
+                if game_state.apt_stage[game_state.attacknode] == 4: #already reach a impact state
+                    possible_nodes = [node for node in [0, 1, 2, 3] if node != game_state.attacknode]
+                    if possible_nodes[0] == 0:
+                        return [0, 4]
+                    else:
+                        attacknode = random.choice(possible_nodes)  # Randomly choose another node
+                        if game_state.apt_stage[attacknode] == 4:
+                            return [attacknode, 3]
+                        else:
+                            return [attacknode, 4] # Start reconnaissance on a new node
+                elif game_state.apt_stage[game_state.attacknode] == 3: #in root state
+                    attacktype = random.choices([2, 3], weights=[2, 5], k=1)[0] # choose persistence or impact attack
+                    return [game_state.attacknode, attacktype]
+                elif game_state.apt_stage[game_state.attacknode] == 2: # in compromised state
+                    attacktype = 1 # choose root attack
+                    return [game_state.attacknode, attacktype]
+                else: #in known state
+                    if game_state.specialservice == True:
+                        attacktype = random.choices([0, 3], weights=[2, 3], k=1)[0]
+                    else:
+                        attacktype = 0 #bruteforce attack
+                    return [game_state.attacknode, attacktype]
+            else: # attack failed
+                nodes = [0, 1, 2, 3]
+                weights = [0.15, 0.05, 0.4, 0.4]
+                attacknode = random.choices(nodes, weights=weights, k=1)[0]
+                #attacknode = random.choice([0, 1, 2, 3])
+                if game_state.apt_stage[attacknode] == 4:
+                    return [attacknode, 3]
+                else:
+                    return [attacknode, 4]
+            
+        
     def action(self, game_state: GameState) -> int:
         """
         Samples an action from the policy

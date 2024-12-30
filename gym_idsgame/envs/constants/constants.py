@@ -47,7 +47,7 @@ class GAME_CONFIG:
     """
     Game constants
     """
-    POSITIVE_REWARD = 1
-    NEGATIVE_REWARD = -1
+    POSITIVE_REWARD = 4
+    NEGATIVE_REWARD = -4
     MAX_GAME_STEPS = 100
     INITIAL_RECONNAISSANCE_STATE = 10

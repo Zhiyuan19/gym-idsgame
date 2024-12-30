@@ -1,0 +1,31 @@
+{
+  "os":  "Linux-5.15.0-125-generic-x86_64-with-glibc2.29",
+  "python":  "CPython 3.8.10",
+  "startedAt":  "2024-12-29T07:45:47.911882Z",
+  "program":  "ppo_training.py",
+  "codePath":  "examples/test/ppo_training.py",
+  "git":  {
+    "remote":  "https://github.com/Zhiyuan19/gym-idsgame.git",
+    "commit":  "a4a50974f8a912f62d5e1b8620aa833ef14a6827"
+  },
+  "email":  "linzy19991113@163.com",
+  "root":  "/home/videoserver/Desktop/DA246X-master-project/gym-idsgame/examples/test",
+  "host":  "videoserver",
+  "executable":  "/usr/bin/python",
+  "codePathLocal":  "ppo_training.py",
+  "cpu_count":  3,
+  "cpu_count_logical":  3,
+  "disk":  {
+    "/":  {
+      "total":  "157816672256",
+      "used":  "59294150656"
+    }
+  },
+  "memory":  {
+    "total":  "12625723392"
+  },
+  "cpu":  {
+    "count":  3,
+    "countLogical":  3
+  }
+}

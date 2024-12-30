@@ -81,17 +81,17 @@ class NetworkConfig:
                     if row_2 == self.data_row+1 and col_1 == self.data_col and col_2 == self.data_col: 
                         adjacency_matrix[i][j] = 1
                         adjacency_matrix[j][i] = 1
-                        print("data i value :", i,"row and col", row_1, col_1)
+                        #print("data i value :", i,"row and col", row_1, col_1)
                 elif row_1 == self.start_row:
                     if row_2 == self.start_row and col_2 == self.start_col-1 and col_1 == self.start_col:
                         adjacency_matrix[i][j] = 1
                         adjacency_matrix[j][i] = 1
-                        print("start i value:", i,"row and col", row_1, col_1)
-                        print("Dns i value:", j,"row and col", row_2, col_2)
+                        #print("start i value:", i,"row and col", row_1, col_1)
+                        #print("Dns i value:", j,"row and col", row_2, col_2)
                     if row_2 == self.start_row-1 and col_1 == self.start_col and col_2 == self.start_col:#-1 and (col_2 == self.start_col-1 or col_2 == self.start_col+1 or col_2 == self.start_col-2):
                         adjacency_matrix[i][j] = 1
                         adjacency_matrix[j][i] = 1
-                        print("router i value:", j,"row and col", row_2, col_2)
+                        #print("router i value:", j,"row and col", row_2, col_2)
                     if row_2 == self.start_row-1 and col_2 == self.start_col and col_1 == self.start_col-1:
                         adjacency_matrix[i][j] = 1
                         adjacency_matrix[j][i] = 1
@@ -102,7 +102,7 @@ class NetworkConfig:
                     if row_2 == row_1 and col_1 == col_2+1 :
                         adjacency_matrix[i][j] = 1
                         adjacency_matrix[j][i] = 1
-        print(adjacency_matrix)
+        #print(adjacency_matrix)
         return adjacency_matrix.astype(np.int32)
 
 

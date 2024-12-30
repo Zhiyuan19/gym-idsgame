@@ -21,6 +21,9 @@ from gym_idsgame.envs.dao.node_type import NodeType
 from gym_idsgame.envs.constants import constants
 from gym_idsgame.envs.dao.attack_defense_event import AttackDefenseEvent
 from gym_idsgame.envs.dao.network_config import NetworkConfig
+from gym_idsgame.envs.snort_reader import snort_alert_reader
+from gym_idsgame.envs.variables import variable
+import random
 
 
 
@@ -93,6 +96,9 @@ class GameState():
         self.reconnaissance_actions = []
         self.max_random_v_val = max_random_v_val
         self.apt_stage = None  # List representing the APT stage for each node, initially set to empty
+        self.attacknode = None
+        self.attackresult = False
+        self.specialservice = False
 
     def default_state(self, node_list: List[int], attacker_pos: Union[int, int], num_attack_types: int,
                       network_config: NetworkConfig, randomize_state : bool = False,
@@ -148,8 +154,13 @@ class GameState():
         :param randomize_visibility: boolean flag whether to randomize visibility for partially observed envs
         :return: None
         """
+        #new part
+        self.apt_stage = [0] * 6
+        self.attacknode = None
+        self.attackresult = False
+        self.specialservice = False
+        #new part
         num_nodes = len(node_list)
-        self.apt_stage = [0] * (num_nodes-1)
         attack_values = np.zeros((num_nodes, num_attack_types))
         defense_values = np.zeros((num_nodes, num_attack_types))
         det_values = np.zeros(num_nodes)
@@ -166,10 +177,6 @@ class GameState():
                                                replace=False)
             vulnerabilities_per_layer[row][vulnerabilities] = 1
         vulnerabilities_per_layer[2][0] = 1
-        print("Vulnerabilities per layer:")
-        print(vulnerabilities_per_layer)
-        print("num_vulnerable nodes_per_layer:", num_vulnerabilities_per_layer)
-        print("num_vulnerabilities_per_node:", num_vulnerabilities_per_node)
         for node_id in range(num_nodes):
             row, col = network_config.get_node_pos(node_id)
             num_vuln = min(num_vulnerabilities_per_node, num_attack_types)
@@ -290,10 +297,13 @@ class GameState():
         new_state.hacked = self.hacked
         new_state.reconnaissance_actions = self.reconnaissance_actions
         new_state.apt_stage = self.apt_stage
+        new_state.attacknode = self.attacknode
+        new_state.attackresult = self.attackresult
+        new_state.specialservice = self.specialservice
+        
         return new_state
 
-    def attack(self, node_id: int, attack_type: int, max_value: int, topo: Mytopo, network_config: NetworkConfig,
-               reconnaissance_enabled : bool = False) -> bool:
+    def attack(self, node_id: int, attack_type: int, topo: Mytopo) -> bool:
         """
         Increments the attack value of the specified node and attack type
 
@@ -304,30 +314,33 @@ class GameState():
         :param reconnaissance_enabled: boolean flag indicating whether reconnaissance actions are enabled or not
         :return: None
         """
-        if network_config.node_list[node_id] != NodeType.START and self.attack_values[node_id][attack_type] < max_value:
-            self.attack_values[node_id][attack_type] += 1
-        if reconnaissance_enabled:
-            if network_config.node_list[node_id] != NodeType.START and \
-                    self.attack_values[node_id][attack_type] > self.reconnaissance_state[node_id][attack_type]:
-                self.reconnaissance_state[node_id][attack_type] = self.attack_values[node_id][attack_type]
+        #if network_config.node_list[node_id] != NodeType.START and self.attack_values[node_id][attack_type] < max_value:
+            #self.attack_values[node_id][attack_type] += 1
+        #if reconnaissance_enabled:
+            #if network_config.node_list[node_id] != NodeType.START and \
+                    #self.attack_values[node_id][attack_type] > self.reconnaissance_state[node_id][attack_type]:
+                #self.reconnaissance_state[node_id][attack_type] = self.attack_values[node_id][attack_type]
+
         #attack mapping to containernet
-        if attack_type == 0:
+        if attack_type == 0: #bruteforce
             output1 = topo.sshbruteforce(node_id)
             #print("Testing:ssh bruteforce result boolean flag is", output1)
-        if attack_type == 1:
+        if attack_type == 1: #root
             output1 = topo.root(node_id)
             #print("Testing:ssh root result boolean flag is", output1)
-        if attack_type == 2:
+        if attack_type == 2: #persistence
             output1 = topo.persistence(node_id)
             #print("Testing:persistence result boolean flag is", output1)
-        if attack_type == 3:
-            if node_id == 2:
-                output1 = topo.attack_modidyfirewall()
+        if attack_type == 3: #impact
+            if node_id == 2 or node_id == 3:
+                output1 = topo.attack_modidyfirewall(node_id)
                 #print("Testing:Modifying firewall rules boolen flag is", output1)
             else:
                 output1 = topo.DDoS(node_id)
                 #print("Testing:DDoS result boolean flag is", output1)
-        
+        if attack_type == 5: #nothing
+            print("Info: Attacker stays idle and does not launch an attack!")
+            output1 = False
         return output1
         
             
@@ -350,7 +363,7 @@ class GameState():
         return min_ats
 
 
-    def reconnaissance(self, node_id: int, attack_type: int, topo: Mytopo, reconnaissance_reward : bool = False) -> Union[int, bool]:
+    def reconnaissance(self, node_id: int, attack_type: int, topo: Mytopo) -> Union[int, bool]:
         """
         Performs a reconnaissance activity for the attacker
 
@@ -360,20 +373,33 @@ class GameState():
         :param network_config: NetworkConfig
         :return: reward
         """
-        if reconnaissance_reward:
-            reward = -0.5 * constants.GAME_CONFIG.POSITIVE_REWARD \
-                if (self.reconnaissance_state[node_id] == self.defense_values[node_id]).all() \
-                else 0.5 * constants.GAME_CONFIG.POSITIVE_REWARD
+        #if reconnaissance_reward:
+            #reward = -0.5 * constants.GAME_CONFIG.POSITIVE_REWARD \
+                #if (self.reconnaissance_state[node_id] == self.defense_values[node_id]).all() \
+                #else 0.5 * constants.GAME_CONFIG.POSITIVE_REWARD
+        #else:
+            #reward = 0
+        #self.reconnaissance_state[node_id] = self.defense_values[node_id]
+        #self.reconnaissance_actions.append(node_id)
+        
+        #####new part:
+        #output, extra = topo.reconnaissance(node_id)
+        output, extra = topo.mockscan(node_id)
+        if output == True:
+            if extra == True:
+                reconreward = 4
+                self.specialservice = True
+            else:
+                reconreward = 1
+                self.specialservice = False
         else:
-            reward = 0
-        self.reconnaissance_state[node_id] = self.defense_values[node_id]
-        self.reconnaissance_actions.append(node_id)
-        output = topo.reconnaissance(node_id)
-        #print("reconnaisance boolen flag is :", output)
-        return reward, output
+            reconreward = -1
+            self.specialservice = False
+        print("the flag of finding target service :", self.specialservice)
+        return reconreward, output
 
-    def defend(self, node_id: int, defense_type: int, max_value: int, topo: Mytopo, network_config: NetworkConfig,
-               detect : bool = False) -> bool:
+    def defend(self, node_id: int, defense_type: int, topo: Mytopo,
+               idle : bool = False) -> bool:
         """
         Increments the defense value of the specified node and defense type
 
@@ -384,30 +410,31 @@ class GameState():
         :param detect: True if it is a detect action otherwise False
         :return: True if update had effect, otherwise False
         """
-        if detect or defense_type >= self.defense_values.shape[1]:
+        if idle or defense_type >= 4:
             # recall containernet functions
             #topo.default_firewall_and_IDS()
             print("Info: Defender stays idle and does nothing")
-            if network_config.node_list[node_id] != NodeType.START and self.defense_det[node_id] < max_value:
-                self.defense_det[node_id] += 1
-                return True
+            return True
+            #if network_config.node_list[node_id] != NodeType.START and self.defense_det[node_id] < max_value:
+                #self.defense_det[node_id] += 1
+                #return True
         else:
             # recall containernet functions
             if defense_type == 0:
-                topo.pause_services(node_id)
+                flag = topo.pause_services(node_id)
             if defense_type == 1:
-                topo.block_traffic(node_id)
+                flag = topo.block_traffic(node_id)
             if defense_type == 2:
-                #topo.isolate_node(node_id)
-                topo.addsnortrules()
+                flag = topo.isolate_node(node_id)
+                #topo.addsnortrules(node_id)
             if defense_type == 3:
-                topo.reset_services(node_id)
-                
-            if network_config.node_list[node_id] != NodeType.START and \
-                    self.defense_values[node_id][defense_type] < max_value:
-                self.defense_values[node_id][defense_type] += 1
-                return True
-        return False
+                flag = topo.reset_services(node_id)
+            return flag 
+            #if network_config.node_list[node_id] != NodeType.START and \
+                    #self.defense_values[node_id][defense_type] < max_value:
+                #self.defense_values[node_id][defense_type] += 1
+                #return True
+        #return False
 
     def simulate_attack(self, attacked_node_id: int, attack_type: int, network_config: NetworkConfig) -> bool:
         """
@@ -594,7 +621,7 @@ class GameState():
         defense_event = AttackDefenseEvent(target_pos, defense_type)
         self.defense_events.append(defense_event)
 
-    def get_defender_observation(self, network_config: NetworkConfig):
+    def get_defender_observation(self):
         """
         Converts the state of the dynamical system into an observation for the defender. As the environment
         is a partially observed markov decision process, the defender observation is only a subset of the game state
@@ -603,9 +630,35 @@ class GameState():
         :return: An observation of the environment
         """
         # +1 for the detection value
-        defense_observation = np.zeros((len(network_config.node_list), self.defense_values.shape[1] + 1))
-        for node_id in range(len(network_config.node_list)):
-            defense_observation[node_id] = np.append(self.defense_values[node_id], self.defense_det[node_id])
+        conf = snort_alert_reader.Config("reader.ini")
+        reader = snort_alert_reader.LogReader(conf)
+        reader.start_tail()
+        #defense_observation = np.zeros((len(network_config.node_list), self.defense_values.shape[1] + 1))
+        defense_observation = np.zeros((4, 4))
+        variable_config = variable.VariableConfig()
+        for node_id in range(4):
+            #defense_observation[node_id] = np.append(self.defense_values[node_id], self.defense_det[node_id])
+            if node_id == 0:
+                defense_observation[node_id][0] = variable_config.wscounter_1_priority
+                defense_observation[node_id][1] = variable_config.wscounter_2_priority
+                defense_observation[node_id][2] = variable_config.wscounter_3_priority
+                defense_observation[node_id][3] = variable_config.wscounter_4_priority
+            elif node_id == 1:
+                defense_observation[node_id][0] = variable_config.h3counter_1_priority
+                defense_observation[node_id][1] = variable_config.h3counter_2_priority
+                defense_observation[node_id][2] = variable_config.h3counter_3_priority
+                defense_observation[node_id][3] = variable_config.h3counter_4_priority
+            elif node_id == 2:
+                defense_observation[node_id][0] = variable_config.fwcounter_1_priority
+                defense_observation[node_id][1] = variable_config.fwcounter_2_priority
+                defense_observation[node_id][2] = variable_config.fwcounter_3_priority
+                defense_observation[node_id][3] = variable_config.fwcounter_4_priority*random.randint(1, 3)
+            elif node_id == 3:
+                defense_observation[node_id][0] = variable_config.macounter_1_priority
+                defense_observation[node_id][1] = variable_config.macounter_2_priority
+                defense_observation[node_id][2] = variable_config.macounter_3_priority
+                defense_observation[node_id][3] = variable_config.macounter_4_priority*random.randint(1, 3)
+                  
         return defense_observation
 
     def randomize_attacker_position(self, network_config : NetworkConfig):
