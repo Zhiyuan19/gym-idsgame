@@ -273,14 +273,14 @@ class IdsGameEnv(gym.Env, ABC):
                 #new part:
                 self.num_fail_attacks[target_node_id] += 1
                 if attack_type == 0:#brute force
-                    reward = (reward[0] - 1, reward[1] + 2)
+                    reward = (reward[0] - 2, reward[1] + 2)
                 elif attack_type == 1 or attack_type == 2: #root or persistence
-                    reward = (reward[0] - 1.5, reward[1] + 3)
+                    reward = (reward[0] - 3, reward[1] + 3)
                 elif attack_type == 3: #ddos
                     if target_node_id == 0: #attacker final target
                         reward = (reward[0] - 5, reward[1] + 5)
                     else:
-                        reward = (reward[0] - 2, reward[1] + 4)
+                        reward = (reward[0] - 4, reward[1] + 4)
                 elif attack_type == 4: #recon failed
                     reward = (reward[0], reward[1] + 1)
                 else: #donothing
@@ -310,17 +310,19 @@ class IdsGameEnv(gym.Env, ABC):
             reward = (reward[0], reward[1] - 1.5) 
         elif defense_type == 2: #isolating nodes
             if defense_node_id == 0 or defense_node_id == 2:
-                reward = (reward[0], reward[1] - 3)
+                reward = (reward[0], reward[1] - 4)
                 self.state.done = True
                 info["is_success"] = True
             else: 
                 reward = (reward[0], reward[1] - 2) 
                 
         if target_node_id == defense_node_id:
-            reward = (reward[0], reward[1] + 3)
-            
+            if defense_node_id == 0:
+                reward = (reward[0], reward[1] + 3)
+            else:
+                reward = (reward[0], reward[1] + 2)
         if (self.state.game_step + 1) % 5 == 0:  
-            reward = (reward[0], reward[1] + 1)  
+            reward = (reward[0], reward[1] + 2)  
                 
         if self.state.done:
             info["ws_failattacks"] = self.num_fail_attacks[0]

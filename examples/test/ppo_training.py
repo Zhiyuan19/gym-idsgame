@@ -23,7 +23,7 @@ from stable_baselines3.common.callbacks import ProgressBarCallback
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
 
 policy_kwargs = dict(
-    net_arch=[32, 32, 32],  
+    net_arch=[128, 128, 64],  
     activation_fn=nn.ReLU   
 )
 previous_run_id = "rheiyy13"
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=5, min_evals=10, verbose=1)
     eval_callback = EvalCallback(
         eval_env,
-        best_model_save_path="./PPOlogs/",
+        best_model_save_path="./ppologs/",
         log_path="./ppologs/",
         eval_freq=1000,
         callback_after_eval=stop_train_callback,
@@ -130,13 +130,13 @@ if __name__ == '__main__':
     checkpoint_callback = CheckpointCallback(
         save_freq=2500,
         save_path="./ppologs/",
-        name_prefix="pporl_model",
+        name_prefix="ppo2rl_model",
         #save_replay_buffer=True,
         #save_vecnormalize=True,
     )
     
     checkpoint_dir = "./ppologs/"
-    checkpoint_prefix = "pporl_model"
+    checkpoint_prefix = "ppo2rl_model"
 
     # finding checkpoints
     def find_latest_checkpoint(checkpoint_dir, prefix):
@@ -156,7 +156,7 @@ if __name__ == '__main__':
     else:
         print("No checkpoint found. Starting new training.")
         remaining_timesteps = config["total_timesteps"]
-        model = PPO(config["policy_type"], env, learning_rate=1e-4, batch_size=250, n_steps=500, ent_coef=1e-4, clip_range=0.2, gae_lambda=0.95, policy_kwargs=policy_kwargs, verbose=1, tensorboard_log=f"runs/{run.id}")
+        model = PPO(config["policy_type"], env, learning_rate=2.5e-4, batch_size=256, n_steps=1024, ent_coef=0.001, clip_range=0.3, gae_lambda=0.95, policy_kwargs=policy_kwargs, verbose=1, tensorboard_log=f"runs/{run.id}")
     
     print(f"Starting learn() from timesteps: {model.num_timesteps}")
 
@@ -175,7 +175,7 @@ if __name__ == '__main__':
         print("Training interrupted by user. Saving model...")
         model.save("interrupted_model.zip")
     
-    model.save(f"models/{run.id}_ppofinal.zip")
+    model.save(f"models/{run.id}_ppo2final.zip")
     idsgame_env.is_end()
     run.finish()
 
