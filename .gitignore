@@ -155,4 +155,5 @@ static
 
 .DS_Store
 
-*/videos*/
+*/videos*/examples/test/wandb/*.wandb
+examples/test/wandb/
