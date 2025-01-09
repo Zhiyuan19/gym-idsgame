@@ -86,23 +86,20 @@ if __name__ == '__main__':
     typelist = [0, 1, 2, 3, 4]
 
     obs, _ = env.reset(seed=None)
-    
-    while env.idsgame_env.state.done == False:
-        node = random.choice(nodelist)
-        defend_type = random.choice(typelist)
-        #action = [nodelist[env.idsgame_env.state.game_step], typelist[env.idsgame_env.state.game_step]]
-        action = [node, defend_type]
-        print("input action is", action)
-        obs, reward, terminated, truncated, info = env.step(action)
         
-    obs, _ = env.reset()
-    while env.idsgame_env.state.done == False:
+    counter = 0
+    while counter < 6:
         node = random.choice(nodelist)
         defend_type = random.choice(typelist)
         #action = [nodelist[env.idsgame_env.state.game_step], typelist[env.idsgame_env.state.game_step]]
-        action = [node, defend_type]
+        action = [0, 4]
         print("input action is", action)
         obs, reward, terminated, truncated, info = env.step(action)
+        if terminated == True:
+            counter = counter + 1
+            print("counter:", counter)
+            obs, _ = env.reset(seed=None)
+            
     
     #while env.idsgame_env.state.game_step <= 8:
         #action = [nodelist[env.idsgame_env.state.game_step], typelist[env.idsgame_env.state.game_step]]
@@ -116,7 +113,7 @@ if __name__ == '__main__':
         #print("input action is", action)
         #obs, rewards, dones, info = env.step(action)
         
-    idsgame_env.is_end()
+    idsgame_env.unwrapped.is_end()
     #obs, rewards, dones, _, info = env.step(4)
     #while True:
         #env.render("human")

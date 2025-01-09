@@ -7,11 +7,11 @@ import signal
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../')))
 
 from topology.topology import Mytopo
-from containernet.net import Containernet
-from mininet.node import Controller, OVSKernelSwitch, RemoteController
-from containernet.cli import CLI
-from containernet.link import TCLink
-from mininet.log import info, setLogLevel
+#from containernet.net import Containernet
+#from mininet.node import Controller, OVSKernelSwitch, RemoteController
+#from containernet.cli import CLI
+#from containernet.link import TCLink
+#from mininet.log import info, setLogLevel
 import subprocess
 
 from typing import Union, List
@@ -639,7 +639,11 @@ class GameState():
         for node_id in range(4):
             #defense_observation[node_id] = np.append(self.defense_values[node_id], self.defense_det[node_id])
             if node_id == 0:
-                defense_observation[node_id][0] = variable_config.wscounter_1_priority
+                if self.apt_stage[0] == 4:
+                    defense_observation[node_id][0] = random.randint(5, 10)
+                else:
+                    defense_observation[node_id][0] = variable_config.wscounter_1_priority
+                    
                 defense_observation[node_id][1] = variable_config.wscounter_2_priority
                 defense_observation[node_id][2] = variable_config.wscounter_3_priority
                 defense_observation[node_id][3] = variable_config.wscounter_4_priority

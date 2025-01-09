@@ -22,11 +22,11 @@ import sys
 import signal
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 from topology.topology import Mytopo
-from containernet.net import Containernet
-from mininet.node import Controller, OVSKernelSwitch, RemoteController
-from containernet.cli import CLI
-from containernet.link import TCLink
-from mininet.log import info, setLogLevel
+#from containernet.net import Containernet
+#from mininet.node import Controller, OVSKernelSwitch, RemoteController
+#from containernet.cli import CLI
+#from containernet.link import TCLink
+#from mininet.log import info, setLogLevel
 import subprocess
 #import gym_idsgame.envs.util.idsgame_util as util
 
@@ -113,8 +113,11 @@ class IdsGameEnv(gym.Env, ABC):
         self.failed_attacks = {}
         #print("attacker position is", self.state.attacker_pos)
         ## add Containernet configuration
+        self.episodecounter = 0
         self.topo = Mytopo()
         self.topo.IDS()
+        self.episodedone = False
+        self.successflag = False
         #self.topo.restartservice()
 
     # -------- API ------------
@@ -133,6 +136,12 @@ class IdsGameEnv(gym.Env, ABC):
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
         #print("action is in step funtion", action)
+        if self.state.game_step == 0:
+            self.num_fail_attacks = [0, 0, 0, 0]
+            self.num_success_attacks = [0, 0, 0, 0]
+            self.episodedone = False
+            self.successflag = False
+            
         import gym_idsgame.envs.util.idsgame_util as util
         # Initialization
         trajectory = []
@@ -146,8 +155,12 @@ class IdsGameEnv(gym.Env, ABC):
         print("GAME STEP", self.state.game_step, ":started")
         if self.state.game_step > 24:
             self.state.done = True
+            self.episodedone = True
+            self.episodecounter = self.episodecounter + 1
+            print(self.episodecounter,"is done")
             reward = (0,10)
             print("Info: reward is", reward[1])
+            self.successflag = True
             info["is_success"] = True
             info["ws_failattacks"] = self.num_fail_attacks[0]
             info["ws_successattacks"] = self.num_success_attacks[0]
@@ -219,7 +232,6 @@ class IdsGameEnv(gym.Env, ABC):
                 self.total_attacks.append([target_node_id, attack_successful, reconnaissance])
 
             # 6. Update state based on attack outcome
-            #time.sleep(1.5)
             self.state.attackresult = attack_successful
             if attack_successful:
                 self.num_success_attacks[target_node_id] += 1
@@ -232,9 +244,10 @@ class IdsGameEnv(gym.Env, ABC):
                         if attack_type == 3: ##Impact
                             #self.state.hacked = True
                             self.state.done = True
+                            self.episodedone = True
                             info["is_success"] = False
+                            self.successflag = False
                             reward = (reward[0] + 5, reward[1] - 5)
-                            time.sleep(1.5)
                             #reward = (reward[0], reward[1] - 4)
                         elif attack_type == 0: #brutoforce
                             reward = (reward[0] + 2, reward[1] - 2)
@@ -312,19 +325,25 @@ class IdsGameEnv(gym.Env, ABC):
             if defense_node_id == 0 or defense_node_id == 2:
                 reward = (reward[0], reward[1] - 4)
                 self.state.done = True
+                self.episodedone = True
                 info["is_success"] = True
+                self.successflag = True
             else: 
                 reward = (reward[0], reward[1] - 2) 
                 
         if target_node_id == defense_node_id:
-            if defense_node_id == 0:
-                reward = (reward[0], reward[1] + 3)
-            else:
-                reward = (reward[0], reward[1] + 2)
+            if defense_type != 4 and attack_type != 5: #both needs no idle(if attacker idle, defender takes action, no reward)
+                if defense_node_id == 0:
+                    reward = (reward[0], reward[1] + 3)
+                else:
+                    reward = (reward[0], reward[1] + 2)
+                    
         if (self.state.game_step + 1) % 5 == 0:  
             reward = (reward[0], reward[1] + 2)  
                 
         if self.state.done:
+            self.episodecounter = self.episodecounter + 1
+            print(self.episodecounter,"is done")
             info["ws_failattacks"] = self.num_fail_attacks[0]
             info["ws_successattacks"] = self.num_success_attacks[0]
             info["h3_failattacks"] = self.num_fail_attacks[1]
@@ -379,10 +398,11 @@ class IdsGameEnv(gym.Env, ABC):
         self.furthest_hack = self.idsgame_config.game_config.network_config.num_rows-1
         self.steps_beyond_done = None
         # new part
-        if self.state.game_step >= 15:
-            print("Info: It is time to reset mininet!", self.state.game_step)
+            
+        if self.episodecounter % 10 == 0:
+            print("Info: It is time to reset mininet!", self.episodecounter)
             self.topo.net.stop()
-            self.topo.net = None
+            os.system("ulimit -n 65535")
             self.topo = None
             self.topo = Mytopo()
             self.topo.IDS()
@@ -424,8 +444,8 @@ class IdsGameEnv(gym.Env, ABC):
         self.defenses = []
         self.attacks = []
         self.hacked_nodes = []
-        self.num_fail_attacks = [0, 0, 0, 0]
-        self.num_success_attacks = [0, 0, 0, 0]
+        #self.num_fail_attacks = [0, 0, 0, 0]
+        #self.num_success_attacks = [0, 0, 0, 0]
         ### add containernet configuration
         self.idsgame_config.attacker_agent.startattack = False
         return observation.astype(np.float32), {}
