@@ -156,7 +156,6 @@ static
 .DS_Store
 
 */videos*/examples/test/wandb/*.wandb
-examples/test/runs/
 gym_idsgame/envs/snort_reader/position.save
 
 examples/test/wandb/
