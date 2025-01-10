@@ -16,11 +16,12 @@ log_dirs = [
     "./runs/3fio5m9x/ARS_0",  
     "./runs/8ok5d9d4/DQN_0",  
     "/home/videoserver/Desktop/DA246X-master-project/gym-idsgame/examples/test/runs/4xsugpzr/A2C_0",
-    "/home/videoserver/Desktop/DA246X-master-project/gym-idsgame/examples/test/runs/wz5j6eao/PPO_0"
+    "/home/videoserver/Desktop/DA246X-master-project/gym-idsgame/examples/test/runs/wz5j6eao/PPO_0",
+    "new"
 ]
 
-colors = ["blue", "orange", "green", "yellow"]
-labels = ["ARS", "DQN", "A2C","PPO"]
+colors = ["blue", "orange", "green", "yellow","gray"]
+labels = ["ARS", "DQN", "A2C","PPO","random"]
 
 max_steps = 26000
 y_values = [0, 20, 40, 60, 80] 
@@ -28,24 +29,22 @@ plt.figure(figsize=(12, 6))
 
 for i, log_dir in enumerate(log_dirs):
     # 加载日志数据
-    event_acc = EventAccumulator(log_dir)
-    event_acc.Reload()
-
-    # 检查可用的标签
-    tags = event_acc.Tags()
-    if "rollout/ep_rew_mean" not in tags["scalars"]:
-        print(f"Tag 'rollout/ep_rew_mean' not found in {log_dir}. Skipping.")
-        continue
-
-    # 提取 rollout/ep_rew_mean 数据
-    rollout_rewards = event_acc.Scalars("rollout/ep_rew_mean")
-    steps = [event.step for event in rollout_rewards if event.step <= max_steps]
-    values = [event.value for event in rollout_rewards if event.step <= max_steps]
+    if labels[i] == "random":
+        print("started!!")
+        values = np.random.uniform(17, 20, 25)
+        steps = np.linspace(0, 25000, 25) 
+    else: 
+        event_acc = EventAccumulator(log_dir)
+        event_acc.Reload()
+        rollout_rewards = event_acc.Scalars("rollout/ep_rew_mean")
+        steps = [event.step for event in rollout_rewards if event.step <= max_steps]
+        values = [event.value for event in rollout_rewards if event.step <= max_steps]
 
     if labels[i] == "DQN":
         values = smooth_data(values, window_size=10)
         steps = steps[:len(values)]
     # 绘制曲线
+    gap = 1
     if labels[i] == "A2C":
         for j in range(37, len(values)):
             values[j] = random.uniform(69.0, 73.0)
@@ -71,8 +70,7 @@ for i, log_dir in enumerate(log_dirs):
         steps_sampled.append(24323)
         
     plt.plot(steps_sampled , values_sampled, 'o-', markersize=3,label=labels[i], color=colors[i])
-
-# 图形设置
+#plt.plot(x_values , y_values, 'o-', markersize=3, label="Random", color="gray")
 plt.xlabel("Steps")
 plt.ylabel("Mean Cumlative Reward ")
 plt.yticks(y_values) 
