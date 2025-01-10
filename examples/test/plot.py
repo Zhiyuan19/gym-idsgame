@@ -23,7 +23,7 @@ colors = ["blue", "orange", "green", "yellow"]
 labels = ["ARS", "DQN", "A2C","PPO"]
 
 max_steps = 26000
-y_values = [0, 20, 40, 60, 80, 100] 
+y_values = [0, 20, 40, 60, 80] 
 plt.figure(figsize=(12, 6))
 
 for i, log_dir in enumerate(log_dirs):
